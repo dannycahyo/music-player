@@ -5,7 +5,6 @@ type AudioPlayerContext = {
   audioUrl: string;
   elapsed: number;
   interval: number;
-  paused: boolean;
 };
 
 type AudioPlayerState =
@@ -36,7 +35,10 @@ type AudioPlayerEvents =
   | { type: "UNMUTE" }
   | { type: "ADJUST_VOLUME"; volume: number }
   | { type: "TICK" }
-  | { type: "SET_CURRENT_TIME"; currentTime: number };
+  | { type: "SET_CURRENT_TIME"; currentTime: number }
+  | { type: "SET_LOOP" }
+  | { type: "STOP" }
+  | { type: "RESET" };
 
 const setTimer =
   (ctx: AudioPlayerContext) => (send: Sender<AudioPlayerEvents>) => {
@@ -52,6 +54,7 @@ const audioPlayerMachine = createMachine<
   AudioPlayerEvents,
   AudioPlayerState
 >({
+  /** @xstate-layout N4IgpgJg5mDOIC5QEMCuECWB7ACgG2QE8wAnAYgFkBVAFQFEBtABgF1FQAHLWDAF2wB27EAA9EANgBMADgB04gIwB2BdKUAWJUw3T1AGhCFE6yZNmTxAVkvTx6y+IDMdy44C+bg2ky4CxclQActT0zGxIIFw8-FhCEWIIUgqy6uJMAJyO6QpMjhpK4gZGCI4Wso4KkpqWCuk20pIK6h5e6Nj4RKRkAIIAIgBSVADKNAD6AGoA8gAyVBSMrMJRfILCCWmOsulMUvbi0gemkkWIko5M5ZaZTpmu6ekFLSDe7X5dQ3RjAMJUAEq-dECYxoAEl5mEltwVrE1ogrupZBp7ulJHUGncTggckotq4FPiLEx1A0sk8Xr5OuQPmNppNJjgIRFljE4qB1udZNJtlIlEp6lz0pjKmS2hT-LIMBA8GAyNTRt0qL0QZNGZwoSzYVjHJYtsj0tJrBkFOJMpilPrZETjbk1LomK4RT4OuK8FhkJgBFAyBBYmAJQIAG5YADWfvJztIsld7ownoQsaDAGNkCywqrIurVvFjBbMkjXDcKgpHGbbLJKuoUdkrZZiY7XpSo26PV7SCQsCRZBwCLwAGYdgC2snDb070Zb8cDWGTqdY6eZWbZiGLOr1+sN2RNJcMiD5F1r1qUjnURJU4nrYsj48gZBw026AE155mYdmELycQUHKpeXdpApSwRXZMkke1LCPe4LwjTtuyIWMvVBL4AGln2iRdREQdIT11RoDkcRx-0qQodwQK50hSOpJEsSRzR2WpJCg0cuz8eDbwVD5UOhVkMPfXlESsRQ1D5LJ-0xK4zBUNQMlcTQ+QURjG1gwhWM4jU3xyOpcQqUxamPLDjhIjRkkUSx7QUK4tCtBTxQ4NBYBvO9H1U9CEg-fjvyEv8AJI-Y5HESTQPNajwMsazIzAAQIAc+8n0WJkX24hINNXPEdMySsTExFx5EULDcmcajjQ8TwQAELAovgCIR0pSE0NfJcEAAWm84pTJ1XCTV5Y1dBNMLO0laVaq4zVNExf9NlUYlSnUVRpCJdwSuql1m3goa1Ia84dSUf8qnuXk9jUQDLiaJQdPNXRpD6pt3UgNaXIkLRLV2AV0n2bViOKOacQNJormUKiTCupTVviurEswso1ErV77H-ajt2KSyUimuwzJyIrFtFaCuzs27QeGt9xCsJ6qhet6HDNXJOXMolMnehxQsxp0mIiqKIDu+qeIrOQGh27aT3ObazWPcx-1OkwahRfFircIA */
   id: "audioPlayer",
   initial: "idle",
   predictableActionArguments: true,
@@ -60,7 +63,6 @@ const audioPlayerMachine = createMachine<
     audioUrl: "",
     interval: 0.1,
     elapsed: 0,
-    paused: true,
   },
   states: {
     idle: {
@@ -141,6 +143,17 @@ const audioPlayerMachine = createMachine<
     SET_CURRENT_TIME: {
       actions: ["setCurrentTime", "updateElapsed"],
     },
+    SET_LOOP: {
+      actions: ["setLoop"],
+    },
+    STOP: {
+      target: "loaded",
+      actions: ["stopAudio", "resetTimer"],
+    },
+    RESET: {
+      target: "idle",
+      actions: ["stopAudio", "resetTimer"],
+    },
   },
 }).withConfig({
   services: {
@@ -157,7 +170,7 @@ const audioPlayerMachine = createMachine<
   },
   actions: {
     assignAudioUrl: assign({
-      audioUrl: (_, event) =>
+      audioUrl: (_, event: AudioPlayerEvents) =>
         event.type === "SET_AUDIO" ? event.audioUrl : "",
     }),
     startTimer: assign({
@@ -184,10 +197,17 @@ const audioPlayerMachine = createMachine<
       context.currentAudio!.currentTime =
         event.type === "SET_CURRENT_TIME" ? event.currentTime : 0;
     },
+    stopAudio: (context: AudioPlayerContext) => {
+      context.currentAudio?.pause();
+      context.currentAudio!.currentTime = 0;
+    },
     updateElapsed: assign({
       elapsed: (context: AudioPlayerContext) =>
         context.currentAudio!.currentTime,
     }),
+    setLoop: (context: AudioPlayerContext) => {
+      context.currentAudio!.loop = !context.currentAudio!.loop;
+    },
   },
 });
 
