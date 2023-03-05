@@ -3,7 +3,6 @@ import { createMachine, assign, Sender } from "xstate";
 type AudioPlayerContext = {
   currentAudio: HTMLAudioElement | null;
   audioUrl: string;
-  muted: boolean;
   elapsed: number;
   interval: number;
   paused: boolean;
@@ -33,11 +32,11 @@ type AudioPlayerEvents =
   | { type: "SET_AUDIO"; audioUrl: string }
   | { type: "PLAY" }
   | { type: "PAUSE" }
-  | { type: "STOP" }
   | { type: "MUTE" }
   | { type: "UNMUTE" }
-  | { type: "VOLUME"; volume: number }
-  | { type: "TICK" };
+  | { type: "ADJUST_VOLUME"; volume: number }
+  | { type: "TICK" }
+  | { type: "SET_CURRENT_TIME"; currentTime: number };
 
 const setTimer =
   (ctx: AudioPlayerContext) => (send: Sender<AudioPlayerEvents>) => {
@@ -55,12 +54,12 @@ const audioPlayerMachine = createMachine<
 >({
   id: "audioPlayer",
   initial: "idle",
+  predictableActionArguments: true,
   context: {
     currentAudio: null,
     audioUrl: "",
     interval: 0.1,
     elapsed: 0,
-    muted: false,
     paused: true,
   },
   states: {
@@ -110,10 +109,6 @@ const audioPlayerMachine = createMachine<
           target: "paused",
           actions: ["pauseAudio"],
         },
-        STOP: {
-          target: "loaded",
-          actions: ["stopAudio", "resetTimer"],
-        },
       },
     },
     paused: {
@@ -122,10 +117,6 @@ const audioPlayerMachine = createMachine<
           target: "playing",
           actions: ["playAudio"],
         },
-        STOP: {
-          target: "loaded",
-          actions: ["stopAudio", "resetTimer"],
-        },
       },
     },
     ended: {
@@ -133,10 +124,6 @@ const audioPlayerMachine = createMachine<
         PLAY: {
           target: "playing",
           actions: ["restartAudio"],
-        },
-        STOP: {
-          target: "loaded",
-          actions: ["stopAudio", "resetTimer"],
         },
       },
     },
@@ -148,8 +135,11 @@ const audioPlayerMachine = createMachine<
     UNMUTE: {
       actions: ["unmuteAudio"],
     },
-    VOLUME: {
+    ADJUST_VOLUME: {
       actions: ["setVolume"],
+    },
+    SET_CURRENT_TIME: {
+      actions: ["setCurrentTime", "updateElapsed"],
     },
   },
 }).withConfig({
@@ -178,10 +168,6 @@ const audioPlayerMachine = createMachine<
     }),
     playAudio: (context) => context.currentAudio?.play(),
     pauseAudio: (context: AudioPlayerContext) => context.currentAudio?.pause(),
-    stopAudio: (context: AudioPlayerContext) => {
-      context.currentAudio?.pause();
-      context.currentAudio!.currentTime = 0;
-    },
     restartAudio: (context: AudioPlayerContext) => {
       context.currentAudio!.currentTime = 0;
       context.currentAudio?.play();
@@ -191,8 +177,17 @@ const audioPlayerMachine = createMachine<
     unmuteAudio: (context: AudioPlayerContext) =>
       (context.currentAudio!.muted = false),
     setVolume: (context: AudioPlayerContext, event: AudioPlayerEvents) => {
-      context.currentAudio!.volume = event.type === "VOLUME" ? event.volume : 1;
+      context.currentAudio!.volume =
+        event.type === "ADJUST_VOLUME" ? event.volume : 0.1;
     },
+    setCurrentTime: (context: AudioPlayerContext, event: AudioPlayerEvents) => {
+      context.currentAudio!.currentTime =
+        event.type === "SET_CURRENT_TIME" ? event.currentTime : 0;
+    },
+    updateElapsed: assign({
+      elapsed: (context: AudioPlayerContext) =>
+        context.currentAudio!.currentTime,
+    }),
   },
 });
 

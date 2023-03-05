@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Container,
   IconButton,
@@ -13,8 +14,13 @@ import {
   SliderFilledTrack,
   SliderThumb,
 } from "@chakra-ui/react";
+
+import { useMachine } from "@xstate/react";
+import { audioPlayerMachine } from "./machines/audioPlayerMachine";
+
 import {
   BsVolumeDown,
+  BsFillVolumeMuteFill,
   BsRepeat,
   BsShuffle,
   BsFillHeartFill,
@@ -24,9 +30,66 @@ import {
   MdOutlineSkipNext,
   MdOutlineSkipPrevious,
   MdPause,
+  MdPlayArrow,
 } from "react-icons/md";
 
 function App() {
+  const [state, send, service] = useMachine(audioPlayerMachine);
+  const src = "https://www.bensound.com/bensound-music/bensound-memories.mp3";
+
+  const { elapsed, currentAudio } = state.context;
+
+  const [sliderCurrentTime, setSliderCurrentTime] = useState(
+    Math.floor(elapsed)
+  );
+
+  useEffect(() => {
+    send({ type: "SET_AUDIO", audioUrl: src });
+  }, [src, send]);
+
+  useEffect(() => {
+    const subscribe = service.subscribe((state) => {
+      console.log(state);
+    });
+
+    return () => {
+      subscribe.unsubscribe();
+    };
+  }, [service]);
+
+  const handlePlay = () => {
+    send("PLAY");
+  };
+
+  const handlePause = () => {
+    send("PAUSE");
+  };
+
+  const handleMute = () => {
+    send("MUTE");
+  };
+
+  const handleUnmute = () => {
+    send("UNMUTE");
+  };
+
+  const handleAdjustVolume = (volume: number) => {
+    send({ type: "ADJUST_VOLUME", volume });
+  };
+
+  const handleAdjustCurrentTime = (currentTime: number) => {
+    setSliderCurrentTime(currentTime);
+    send({ type: "SET_CURRENT_TIME", currentTime });
+  };
+
+  function formatTime(seconds: number) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    const formattedMinutes = String(minutes).padStart(2, "0");
+    const formattedSeconds = String(remainingSeconds).padStart(2, "0");
+    return `${formattedMinutes}:${formattedSeconds}`;
+  }
+
   return (
     <Container centerContent minH="100vh" justifyContent="center">
       <Heading size="md">Playing Now</Heading>
@@ -57,20 +120,54 @@ function App() {
           icon={<BsFillHeartFill />}
         />
       </Flex>
+
       <Flex
         justifyContent="space-between"
         alignItems="center"
         minW="300px"
         pt="4"
       >
-        <IconButton
-          variant="ghost"
-          colorScheme="whiteAlpha"
-          size="lg"
-          aria-label="audio"
-          fontSize="30px"
-          icon={<BsVolumeDown />}
-        />
+        <VStack>
+          <Slider
+            aria-label="slider-ex-3"
+            value={currentAudio?.volume}
+            defaultValue={currentAudio?.volume}
+            onChange={handleAdjustVolume}
+            orientation="vertical"
+            min={0}
+            max={1}
+            step={0.1}
+            minH="14"
+          >
+            <SliderTrack>
+              <SliderFilledTrack />
+            </SliderTrack>
+            <SliderThumb />
+          </Slider>
+
+          {currentAudio?.muted ? (
+            <IconButton
+              onClick={handleUnmute}
+              variant="ghost"
+              colorScheme="whiteAlpha"
+              size="lg"
+              aria-label="audio"
+              fontSize="30px"
+              icon={<BsFillVolumeMuteFill />}
+            />
+          ) : (
+            <IconButton
+              onClick={handleMute}
+              variant="ghost"
+              colorScheme="whiteAlpha"
+              size="lg"
+              aria-label="audio"
+              fontSize="30px"
+              icon={<BsVolumeDown />}
+            />
+          )}
+        </VStack>
+
         <HStack>
           <IconButton
             variant="ghost"
@@ -97,12 +194,18 @@ function App() {
         alignItems="center"
         mt="4"
       >
-        <Text>00:00</Text>
-        <Text>04:00</Text>
+        <Text>{formatTime(Math.floor(elapsed))}</Text>
+        <Text>{formatTime(currentAudio?.duration || 0)}</Text>
       </Flex>
 
       <Box minW="300px" mt="4">
-        <Slider aria-label="slider-ex-4" defaultValue={30}>
+        <Slider
+          aria-label="slider-ex-4"
+          value={sliderCurrentTime}
+          onChange={handleAdjustCurrentTime}
+          min={0}
+          max={currentAudio?.duration}
+        >
           <SliderTrack bg="red.100">
             <SliderFilledTrack bg="white" />
           </SliderTrack>
@@ -112,25 +215,43 @@ function App() {
         </Slider>
       </Box>
 
-      <HStack mt="8" justifyContent="space-between" minW="200px">
+      <HStack mt="2" justifyContent="space-between" minW="200px">
         <IconButton
           variant="ghost"
+          colorScheme="whiteAlpha"
           color="white"
           size="lg"
           aria-label="previous"
           fontSize="36px"
           icon={<MdOutlineSkipPrevious />}
         />
+        {state.matches("playing") ? (
+          <IconButton
+            variant="ghost"
+            colorScheme="whiteAlpha"
+            color="white"
+            size="lg"
+            aria-label="pause"
+            fontSize="36px"
+            onClick={handlePause}
+            icon={<MdPause />}
+          />
+        ) : (
+          <IconButton
+            variant="ghost"
+            colorScheme="whiteAlpha"
+            color="white"
+            size="lg"
+            aria-label="play"
+            fontSize="36px"
+            onClick={handlePlay}
+            icon={<MdPlayArrow />}
+          />
+        )}
+
         <IconButton
           variant="ghost"
-          color="white"
-          size="lg"
-          aria-label="pause"
-          fontSize="36px"
-          icon={<MdPause />}
-        />
-        <IconButton
-          variant="ghost"
+          colorScheme="whiteAlpha"
           color="white"
           size="lg"
           aria-label="next"
