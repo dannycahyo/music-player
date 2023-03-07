@@ -156,20 +156,11 @@ function App() {
     send({ type: "SET_LOOP" });
   };
 
-  const { elapsed, currentAudio } = state.context;
-
-  const [sliderCurrentTime, setSliderCurrentTime] = useState(
-    Math.floor(elapsed)
-  );
+  const { currentAudio, elapsed } = state.context;
 
   useEffect(() => {
-    console.log("HERE HERE HERE");
     send({ type: "SET_AUDIO", audioUrl: url });
   }, [selectedSong, send]);
-
-  useEffect(() => {
-    setSliderCurrentTime(currentAudio?.currentTime || 0);
-  }, [currentAudio]);
 
   useEffect(() => {
     const subscribe = service.subscribe((state) => {
@@ -202,7 +193,6 @@ function App() {
   };
 
   const handleAdjustCurrentTime = (currentTime: number) => {
-    setSliderCurrentTime(currentTime);
     send({ type: "SET_CURRENT_TIME", currentTime });
   };
 
@@ -339,14 +329,14 @@ function App() {
             alignItems="center"
             mt="4"
           >
-            <Text>{formatTime(Math.floor(elapsed))}</Text>
+            <Text>{formatTime(elapsed)}</Text>
             <Text>{formatTime(currentAudio?.duration || 0)}</Text>
           </Flex>
 
           <Box minW="300px" mt="4">
             <Slider
               aria-label="slider-ex-4"
-              value={sliderCurrentTime}
+              value={elapsed}
               onChange={handleAdjustCurrentTime}
               min={0}
               max={currentAudio?.duration}

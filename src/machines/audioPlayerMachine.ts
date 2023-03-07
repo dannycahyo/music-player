@@ -4,7 +4,6 @@ type AudioPlayerContext = {
   currentAudio: HTMLAudioElement | null;
   audioUrl: string;
   elapsed: number;
-  interval: number;
 };
 
 type AudioPlayerState =
@@ -34,19 +33,24 @@ type AudioPlayerEvents =
   | { type: "MUTE" }
   | { type: "UNMUTE" }
   | { type: "ADJUST_VOLUME"; volume: number }
-  | { type: "TICK" }
   | { type: "SET_CURRENT_TIME"; currentTime: number }
   | { type: "SET_LOOP" }
   | { type: "STOP" }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "UPDATE_ELAPSED"; elapsed: number };
 
 const setTimer =
   (ctx: AudioPlayerContext) => (send: Sender<AudioPlayerEvents>) => {
-    const interval = setInterval(() => {
-      send("TICK");
-    }, ctx.interval * 1000);
+    if (ctx.currentAudio) {
+      const interval = setInterval(() => {
+        send({
+          type: "UPDATE_ELAPSED",
+          elapsed: ctx.currentAudio!.currentTime,
+        });
+      }, 1000);
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   };
 
 const audioPlayerMachine = createMachine<
@@ -61,7 +65,6 @@ const audioPlayerMachine = createMachine<
   context: {
     currentAudio: null,
     audioUrl: "",
-    interval: 0.1,
     elapsed: 0,
   },
   states: {
@@ -99,17 +102,26 @@ const audioPlayerMachine = createMachine<
       invoke: {
         src: setTimer,
       },
-      always: {
-        cond: (ctx) => ctx.elapsed >= ctx.currentAudio!.duration,
-        target: "ended",
-      },
-      on: {
-        TICK: {
-          actions: "startTimer",
+      always: [
+        {
+          cond: (ctx) =>
+            ctx.currentAudio!.loop && ctx.elapsed >= ctx.currentAudio!.duration,
+          target: "playing",
+          actions: "resetTimer",
         },
+        {
+          cond: (ctx) => ctx.elapsed >= ctx.currentAudio!.duration,
+          target: "ended",
+          actions: "resetTimer",
+        },
+      ],
+      on: {
         PAUSE: {
           target: "paused",
           actions: ["pauseAudio"],
+        },
+        UPDATE_ELAPSED: {
+          actions: "updateElapsed",
         },
       },
     },
@@ -172,9 +184,6 @@ const audioPlayerMachine = createMachine<
     assignAudioUrl: assign({
       audioUrl: (_, event: AudioPlayerEvents) =>
         event.type === "SET_AUDIO" ? event.audioUrl : "",
-    }),
-    startTimer: assign({
-      elapsed: (ctx) => ctx.elapsed + ctx.interval,
     }),
     resetTimer: assign({
       elapsed: 0,
