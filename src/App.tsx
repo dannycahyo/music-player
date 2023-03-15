@@ -110,6 +110,7 @@ function App() {
   const [selectedSong, setSelectedSong] = useState<number>(0);
   const [likedSongs, setLikedSongs] = useState<string[]>([]);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
+  const [isHovering, setIsHovering] = useState(false);
 
   const { image, title, url, id } = songs[selectedSong];
 
@@ -251,52 +252,60 @@ function App() {
             />
           </Flex>
 
-          <Flex
-            justifyContent="space-between"
-            alignItems="center"
-            minW="300px"
-            pt="4"
-          >
-            <VStack>
-              <Slider
-                aria-label="slider-ex-3"
-                value={currentAudio?.volume}
-                defaultValue={currentAudio?.volume}
-                onChange={handleAdjustVolume}
-                orientation="vertical"
-                min={0}
-                max={1}
-                step={0.1}
-                minH="14"
-              >
-                <SliderTrack>
-                  <SliderFilledTrack />
-                </SliderTrack>
-                <SliderThumb />
-              </Slider>
-
-              {currentAudio?.muted ? (
-                <IconButton
-                  onClick={handleUnmute}
-                  variant="ghost"
-                  colorScheme="whiteAlpha"
-                  size="lg"
-                  aria-label="audio"
-                  fontSize="30px"
-                  icon={<BsFillVolumeMuteFill />}
-                />
-              ) : (
-                <IconButton
-                  onClick={handleMute}
-                  variant="ghost"
-                  colorScheme="whiteAlpha"
-                  size="lg"
-                  aria-label="audio"
-                  fontSize="30px"
-                  icon={<BsVolumeDown />}
-                />
+          <Flex justifyContent="space-between" alignItems="center" minW="300px">
+            <Box
+              position="relative"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
+              <IconButton
+                onClick={() =>
+                  currentAudio?.muted ? handleUnmute() : handleMute()
+                }
+                variant="ghost"
+                colorScheme="whiteAlpha"
+                size="lg"
+                aria-label="audio"
+                fontSize="30px"
+                icon={
+                  currentAudio?.muted ? (
+                    <BsFillVolumeMuteFill />
+                  ) : (
+                    <BsVolumeDown />
+                  )
+                }
+              />
+              {isHovering && (
+                <Box
+                  position="absolute"
+                  top="-56px"
+                  left="12px"
+                  zIndex={1}
+                  p="4px"
+                  borderRadius="md"
+                  boxShadow="md"
+                  onMouseEnter={() => setIsHovering(true)}
+                  onMouseLeave={() => setIsHovering(false)}
+                >
+                  <Slider
+                    aria-label="slider-ex-3"
+                    value={currentAudio?.volume}
+                    defaultValue={currentAudio?.volume}
+                    onChange={handleAdjustVolume}
+                    orientation="vertical"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    minH="14"
+                  >
+                    <SliderTrack>
+                      <SliderFilledTrack />
+                    </SliderTrack>
+                    <SliderThumb />
+                  </Slider>
+                </Box>
               )}
-            </VStack>
+            </Box>
 
             <HStack>
               <IconButton
