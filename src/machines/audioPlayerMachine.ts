@@ -2,32 +2,64 @@ import { createMachine, assign, Sender } from "xstate";
 
 type AudioPlayerContext = {
   currentAudio: HTMLAudioElement | null;
-  audioUrl: string;
+  audioErrorMessage?: string;
+  src: string;
   elapsed: number;
 };
 
 type AudioPlayerState =
-  | { value: "idle"; context: AudioPlayerContext }
-  | { value: "loading"; context: AudioPlayerContext }
+  | {
+      value: "idle";
+      context: AudioPlayerContext & {
+        currentAudio: null;
+        audioErrorMessage: undefined;
+      };
+    }
+  | {
+      value: "loading";
+      context: AudioPlayerContext & {
+        currentAudio: null;
+        audioErrorMessage: undefined;
+      };
+    }
+  | {
+      value: "error";
+      context: AudioPlayerContext & {
+        currentAudio: null;
+        audioErrorMessage: string;
+      };
+    }
   | {
       value: "loaded";
-      context: AudioPlayerContext & { currentAudio: HTMLAudioElement };
+      context: AudioPlayerContext & {
+        currentAudio: HTMLAudioElement;
+        audioErrorMessage: undefined;
+      };
     }
   | {
       value: "playing";
-      context: AudioPlayerContext & { currentAudio: HTMLAudioElement };
+      context: AudioPlayerContext & {
+        currentAudio: HTMLAudioElement;
+        audioErrorMessage: undefined;
+      };
     }
   | {
       value: "paused";
-      context: AudioPlayerContext & { currentAudio: HTMLAudioElement };
+      context: AudioPlayerContext & {
+        currentAudio: HTMLAudioElement;
+        audioErrorMessage: undefined;
+      };
     }
   | {
       value: "ended";
-      context: AudioPlayerContext & { currentAudio: HTMLAudioElement };
+      context: AudioPlayerContext & {
+        currentAudio: HTMLAudioElement;
+        audioErrorMessage: undefined;
+      };
     };
 
 type AudioPlayerEvents =
-  | { type: "SET_AUDIO"; audioUrl: string }
+  | { type: "SET_AUDIO"; src: string }
   | { type: "PLAY" }
   | { type: "PAUSE" }
   | { type: "MUTE" }
@@ -64,7 +96,7 @@ const audioPlayerMachine = createMachine<
   predictableActionArguments: true,
   context: {
     currentAudio: null,
-    audioUrl: "",
+    src: "",
     elapsed: 0,
   },
   states: {
@@ -72,7 +104,7 @@ const audioPlayerMachine = createMachine<
       on: {
         SET_AUDIO: {
           target: "loading",
-          actions: "assignAudioUrl",
+          actions: "assignAudioSrc",
         },
       },
     },
@@ -86,10 +118,14 @@ const audioPlayerMachine = createMachine<
           })),
         },
         onError: {
-          target: "idle",
+          target: "error",
+          actions: assign((_, event) => ({
+            audioErrorMessage: event.type,
+          })),
         },
       },
     },
+    error: {},
     loaded: {
       on: {
         PLAY: {
@@ -171,7 +207,7 @@ const audioPlayerMachine = createMachine<
   services: {
     loadAudio: (context) =>
       new Promise<HTMLAudioElement>((resolve, reject) => {
-        const audio = new Audio(context.audioUrl);
+        const audio = new Audio(context.src);
         audio.addEventListener("loadeddata", () => {
           resolve(audio);
         });
@@ -181,9 +217,9 @@ const audioPlayerMachine = createMachine<
       }),
   },
   actions: {
-    assignAudioUrl: assign({
-      audioUrl: (_, event: AudioPlayerEvents) =>
-        event.type === "SET_AUDIO" ? event.audioUrl : "",
+    assignAudioSrc: assign({
+      src: (_, event: AudioPlayerEvents) =>
+        event.type === "SET_AUDIO" ? event.src : "",
     }),
     resetTimer: assign({
       elapsed: 0,
