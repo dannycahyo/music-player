@@ -319,7 +319,6 @@ function App() {
                 icon={<BsShuffle />}
               />
               <IconButton
-                // TODO: handle repeat song logic when next and previous song is clicked
                 onClick={handleRepeatSong}
                 variant="ghost"
                 colorScheme="whiteAlpha"
